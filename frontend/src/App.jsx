@@ -20,10 +20,10 @@ function App() {
       try {
         const payloadStr = new TextDecoder().decode(matchData.data);
         const payload = JSON.parse(payloadStr);
-        console.log('[Global] Match Data:', matchData.op_code, payload);
+
         processMatchData(payload);
       } catch (err) {
-        console.error('Failed to parse global match data:', err);
+
       }
     };
   }, [processMatchData]);

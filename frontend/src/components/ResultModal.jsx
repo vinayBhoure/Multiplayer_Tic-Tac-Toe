@@ -22,7 +22,7 @@ export default function ResultModal() {
       try {
         await socket.leaveMatch(matchId);
       } catch (err) {
-        console.error('Error leaving match:', err);
+
       }
     }
     resetGame();

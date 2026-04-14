@@ -24,42 +24,42 @@ export default function GameBoard() {
   // No local state listener needed - updates are handled globally in App.jsx via gameStore
 
   const handleTileClick = async (index) => {
-    console.log('[Move] Click on cell', index, '| selfMark:', selfMark, '| activeTurn:', activeTurn, '| matchId:', matchId);
+
 
     if (winner || isDraw) {
-      console.log('[Move] Blocked: game over');
+
       return;
     }
     if (activeTurn !== selfMark) {
-      console.log('[Move] Blocked: not your turn. activeTurn=', activeTurn, 'selfMark=', selfMark);
+
       toast.info("Not your turn!");
       return;
     }
     if (board[index]) {
-      console.log('[Move] Blocked: cell already occupied');
+
       return;
     }
 
     const socket = nakamaClient.getSocket();
-    console.log('[Move] Socket:', socket ? 'exists' : 'NULL', '| matchId:', matchId);
+
 
     if (!socket) {
-      console.error('[Move] No socket — cannot send move');
+
       toast.error('Connection lost. Please refresh.');
       return;
     }
     if (!matchId) {
-      console.error('[Move] No matchId — cannot send move');
+
       return;
     }
 
     try {
       const payload = JSON.stringify({ cellIndex: index });
-      console.log('[Move] Sending to server:', payload, 'opCode:', OP_CODE_MOVE);
+
       await socket.sendMatchState(matchId, OP_CODE_MOVE, payload);
-      console.log('[Move] sendMatchState completed for cell', index);
+
     } catch (err) {
-      console.error('[Move] sendMatchState failed:', err);
+
       toast.error('Failed to send move. Please try again.');
     }
   };

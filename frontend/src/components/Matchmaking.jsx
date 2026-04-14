@@ -13,7 +13,7 @@ export default function Matchmaking() {
     // Initial binding for immediate connectivity
     const socket = nakamaClient.getSocket();
     if (socket) {
-      socket.onmatchmakermatched = (matched) => console.log("Matchmaker notification (idle):", matched);
+      socket.onmatchmakermatched = () => {};
     }
   }, []);
 
@@ -22,14 +22,14 @@ export default function Matchmaking() {
     try {
       let socket = nakamaClient.getSocket();
       if (!socket || !socket.connected) {
-        console.log('Socket not connected, establishing new connection...');
+
         socket = await nakamaClient.connectSocket();
       }
 
       // ATTACH LISTENER TO THE CURRENT ACTIVE SOCKET
       // This is crucial for receiving the match notification after search
       socket.onmatchmakermatched = async (matched) => {
-        console.log('Matchmaker found a match!', matched);
+
         try {
           const matchId = matched.match_id || matched.matchId;
           const token = matched.token;
@@ -62,17 +62,17 @@ export default function Matchmaking() {
           setMatchStarted(finalMatchId, optimisticSelfMark, opponentName);
           toast.success(`Match found against ${opponentName}!`);
         } catch (error) {
-          console.error('Error joining match:', error);
+
           toast.error('Failed to join the match.');
           setIsSearching(false);
         }
       };
 
-      console.log('Requesting matchmaker...');
+
       await socket.addMatchmaker('*', 2, 2);
       toast.info("Searching for opponent...");
     } catch (error) {
-      console.error('Matchmaker error:', error);
+
       toast.error('Could not join matchmaking queue. Please try again.');
       setIsSearching(false);
     }

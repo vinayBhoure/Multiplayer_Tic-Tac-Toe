@@ -40,7 +40,7 @@ class NakamaService {
 
     try {
       this.session = await this.client.authenticateDevice(deviceId, true, username);
-      console.log('[Nakama] Authenticated:', this.session.user_id, 'as', username);
+
       return this.session;
     } catch (error) {
       console.error('[Nakama] Authentication failed:', error);
@@ -72,7 +72,7 @@ class NakamaService {
         if (this.onMatchData) this.onMatchData(data);
       };
 
-      console.log('[Nakama] Socket connected successfully');
+
     } catch (error) {
       console.error('[Nakama] Socket connection failed:', error);
       this.socket = null;
