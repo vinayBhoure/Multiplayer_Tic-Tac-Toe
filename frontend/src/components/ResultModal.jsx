@@ -4,7 +4,7 @@ import { useGameStore } from '../gameStore';
 import { nakamaClient } from '../nakamaClient';
 
 export default function ResultModal() {
-  const { winner, isDraw, selfMark, matchId, resetGame } = useGameStore();
+  const { winner, isDraw, selfMark, matchId, gameOverReason, resetGame } = useGameStore();
   const [isLeaving, setIsLeaving] = useState(false);
 
   const isVictory = winner === selfMark;
@@ -14,6 +14,23 @@ export default function ResultModal() {
   if (isVictory) headline = 'Victory';
   else if (isDefeat) headline = 'Defeat';
   else if (isDraw) headline = 'Draw';
+
+  const getSubMessage = () => {
+    switch (gameOverReason) {
+      case 'timeout':
+        return isVictory ? 'Opponent ran out of time.' : 'You ran out of time.';
+      case 'opponent_left':
+        return 'Opponent has abandoned the match.';
+      case 'match_terminated':
+        return 'The match was terminated by the server.';
+      case 'win':
+        return isVictory ? 'Flawless execution.' : 'Better luck next time.';
+      case 'draw':
+        return 'A battle of equals.';
+      default:
+        return isVictory ? 'Flawless execution.' : isDefeat ? 'Better luck next time.' : 'Game over.';
+    }
+  };
 
   const handlePlayAgain = async () => {
     setIsLeaving(true);
@@ -41,7 +58,7 @@ export default function ResultModal() {
           {headline}
         </h2>
         <p className="text-muted text-sm text-center mb-8">
-          {isVictory ? 'Flawless execution.' : isDefeat ? 'Better luck next time.' : 'A battle of equals.'}
+          {getSubMessage()}
         </p>
 
         <button

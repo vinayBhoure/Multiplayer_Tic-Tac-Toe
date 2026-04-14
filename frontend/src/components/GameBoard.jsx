@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 import { useGameStore } from '../gameStore';
 import { nakamaClient } from '../nakamaClient';
+import TurnTimerRing from './TurnTimerRing';
 
 // OpCodes to match backend expectations (assume 1 = Move, 2 = State Update)
 const OP_CODE_MOVE = 1;
@@ -17,6 +18,7 @@ export default function GameBoard() {
     isDraw,
     winner,
     matchId,
+    turnTimer,
     updateGameState,
     setMatchStarted
   } = useGameStore();
@@ -85,10 +87,21 @@ export default function GameBoard() {
         </div>
 
         <div className="flex flex-col items-center">
-          <span className="text-xs uppercase tracking-wider text-muted font-semibold mb-1">Status</span>
-          <div className="px-3 py-1 bg-surface border border-border shadow-subtle rounded-full text-sm font-medium">
-            {winner ? (winner === selfMark ? 'Victory!' : 'Defeat') : isDraw ? 'Draw' : (activeTurn === selfMark ? 'Your Turn' : "Opponent's Turn")}
-          </div>
+          {!winner && !isDraw ? (
+            <>
+              <TurnTimerRing turnTimer={turnTimer} isMyTurn={activeTurn === selfMark} />
+              <span className="text-xs text-muted font-medium mt-1">
+                {activeTurn === selfMark ? 'Your Turn' : "Opponent's Turn"}
+              </span>
+            </>
+          ) : (
+            <>
+              <span className="text-xs uppercase tracking-wider text-muted font-semibold mb-1">Status</span>
+              <div className="px-3 py-1 bg-surface border border-border shadow-subtle rounded-full text-sm font-medium">
+                {winner ? (winner === selfMark ? 'Victory!' : 'Defeat') : 'Draw'}
+              </div>
+            </>
+          )}
         </div>
 
         <div className="flex flex-col items-end">
