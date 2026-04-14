@@ -10,50 +10,70 @@ export default function Matchmaking() {
   const { username, setMatchStarted, resetGame } = useGameStore();
 
   useEffect(() => {
+    // Initial binding for immediate connectivity
     const socket = nakamaClient.getSocket();
-    if (!socket) return;
-
-    // Listen for matchmaker successful match
-    socket.onmatchmakermatched = async (matched) => {
-      console.log('Matchmaker matched:', matched);
-      try {
-        const match = await socket.joinMatch(matched.match_id);
-        
-        // Find our mark and opponent
-        const selfId = nakamaClient.getSession().user_id;
-        
-        // Let's assume the players are sorted by their session IDs or simply order in list
-        // In this implementation, the match state dictates the exact X and O.
-        // But for display, we'll keep it simple for now, standard matched payload has users.
-        const opponentUser = matched.users.find(u => u.presence.user_id !== selfId);
-        
-        const opponentName = opponentUser ? opponentUser.presence.username : 'Opponent';
-
-        // Set the match started
-        // Note: the backend handles X vs O on the first match data broadcast, 
-        // we start blindly and await state packet.
-        setMatchStarted(match.match_id, null, opponentName);
-        toast.success(`Match found against ${opponentName}!`);
-      } catch (error) {
-        console.error('Error joining match:', error);
-        toast.error('Failed to join the match.');
-        setIsSearching(false);
-      }
-    };
-
-    return () => {
-      socket.onmatchmakermatched = null;
-    };
-  }, [setMatchStarted]);
+    if (socket) {
+      socket.onmatchmakermatched = (matched) => console.log("Matchmaker notification (idle):", matched);
+    }
+  }, []);
 
   const handleFindMatch = async () => {
     setIsSearching(true);
-    const socket = nakamaClient.getSocket();
     try {
-      await socket.addMatchmaker(2, 2);
+      let socket = nakamaClient.getSocket();
+      if (!socket || !socket.connected) {
+        console.log('Socket not connected, establishing new connection...');
+        socket = await nakamaClient.connectSocket();
+      }
+
+      // ATTACH LISTENER TO THE CURRENT ACTIVE SOCKET
+      // This is crucial for receiving the match notification after search
+      socket.onmatchmakermatched = async (matched) => {
+        console.log('Matchmaker found a match!', matched);
+        try {
+          const matchId = matched.match_id || matched.matchId;
+          const token = matched.token;
+
+          const selfId = nakamaClient.getSession().user_id;
+          const opponentUser = matched.users.find(u => u.presence.user_id !== selfId);
+          const opponentName = opponentUser ? opponentUser.presence.username : 'Opponent';
+
+          // Derive selfMark from matchmaker order: first user in array = X, second = O
+          // The server assigns X to the first player who joins and O to the second.
+          // matched.users is ordered by join sequence, so we use that as our hint.
+          // The authoritative symbol will be confirmed/overwritten by the MATCH_STATE broadcast.
+          const selfIndex = matched.users.findIndex(u => u.presence.user_id === selfId);
+          const optimisticSelfMark = selfIndex === 0 ? 'X' : 'O';
+
+          let match;
+          if (matchId) {
+            match = await socket.joinMatch(matchId);
+          } else if (token) {
+            match = await socket.joinMatch(null, token);
+          } else {
+            throw new Error("No match_id or token received");
+          }
+
+          const finalMatchId = match.match_id || match.matchId;
+
+          // Set match as started with the optimistic selfMark.
+          // The first MATCH_STATE broadcast will overwrite selfMark via processMatchData
+          // if it differs (it shouldn't, but this keeps us authoritative).
+          setMatchStarted(finalMatchId, optimisticSelfMark, opponentName);
+          toast.success(`Match found against ${opponentName}!`);
+        } catch (error) {
+          console.error('Error joining match:', error);
+          toast.error('Failed to join the match.');
+          setIsSearching(false);
+        }
+      };
+
+      console.log('Requesting matchmaker...');
+      await socket.addMatchmaker('*', 2, 2);
+      toast.info("Searching for opponent...");
     } catch (error) {
       console.error('Matchmaker error:', error);
-      toast.error('Could not join matchmaking queue.');
+      toast.error('Could not join matchmaking queue. Please try again.');
       setIsSearching(false);
     }
   };

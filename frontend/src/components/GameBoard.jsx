@@ -21,59 +21,46 @@ export default function GameBoard() {
     setMatchStarted
   } = useGameStore();
 
-  useEffect(() => {
-    const socket = nakamaClient.getSocket();
-    if (!socket) return;
+  // No local state listener needed - updates are handled globally in App.jsx via gameStore
 
-    socket.onmatchdata = (matchState) => {
-      try {
-        const payloadStr = new TextDecoder().decode(matchState.data);
-        const payload = JSON.parse(payloadStr);
+  const handleTileClick = async (index) => {
+    console.log('[Move] Click on cell', index, '| selfMark:', selfMark, '| activeTurn:', activeTurn, '| matchId:', matchId);
 
-        console.log('Received match data:', matchState.op_code, payload);
-
-        // Update the global state directly off the authoritative server packet
-        if (payload.board !== undefined) {
-          // If server provides the marks for players via some logic, handle selfMark.
-          // By convention, assume backend payload contains selfMark mapping, OR we infer it if needed.
-          // In a real implementation: `payload.players` might object map user_id -> "X"/"O".
-          
-          if (payload.myMark && !selfMark) {
-             setMatchStarted(matchId, payload.myMark, opponent);
-          }
-
-          updateGameState(
-            payload.board,
-            payload.turn,
-            payload.winner || null,
-            payload.isDraw || false
-          );
-        }
-      } catch (err) {
-        console.error('Failed to parse match data:', err);
-      }
-    };
-
-    return () => {
-      socket.onmatchdata = null;
-    };
-  }, [matchId, selfMark, opponent, updateGameState, setMatchStarted]);
-
-  const handleTileClick = (index) => {
-    if (winner || isDraw) return;
+    if (winner || isDraw) {
+      console.log('[Move] Blocked: game over');
+      return;
+    }
     if (activeTurn !== selfMark) {
+      console.log('[Move] Blocked: not your turn. activeTurn=', activeTurn, 'selfMark=', selfMark);
       toast.info("Not your turn!");
       return;
     }
     if (board[index]) {
+      console.log('[Move] Blocked: cell already occupied');
       return;
     }
 
     const socket = nakamaClient.getSocket();
-    if (socket && matchId) {
-      // Encode move and send to backend
-      const payload = JSON.stringify({ position: index });
-      socket.sendMatchState(matchId, OP_CODE_MOVE, payload);
+    console.log('[Move] Socket:', socket ? 'exists' : 'NULL', '| matchId:', matchId);
+
+    if (!socket) {
+      console.error('[Move] No socket — cannot send move');
+      toast.error('Connection lost. Please refresh.');
+      return;
+    }
+    if (!matchId) {
+      console.error('[Move] No matchId — cannot send move');
+      return;
+    }
+
+    try {
+      const payload = JSON.stringify({ cellIndex: index });
+      console.log('[Move] Sending to server:', payload, 'opCode:', OP_CODE_MOVE);
+      await socket.sendMatchState(matchId, OP_CODE_MOVE, payload);
+      console.log('[Move] sendMatchState completed for cell', index);
+    } catch (err) {
+      console.error('[Move] sendMatchState failed:', err);
+      toast.error('Failed to send move. Please try again.');
     }
   };
 
@@ -96,11 +83,11 @@ export default function GameBoard() {
             <span className="text-xl font-medium">{selfMark ? `Mark ${selfMark}` : 'Waiting...'}</span>
           </div>
         </div>
-        
+
         <div className="flex flex-col items-center">
           <span className="text-xs uppercase tracking-wider text-muted font-semibold mb-1">Status</span>
           <div className="px-3 py-1 bg-surface border border-border shadow-subtle rounded-full text-sm font-medium">
-             {winner ? (winner === selfMark ? 'Victory!' : 'Defeat') : isDraw ? 'Draw' : (activeTurn === selfMark ? 'Your Turn' : "Opponent's Turn")}
+            {winner ? (winner === selfMark ? 'Victory!' : 'Defeat') : isDraw ? 'Draw' : (activeTurn === selfMark ? 'Your Turn' : "Opponent's Turn")}
           </div>
         </div>
 
@@ -117,11 +104,9 @@ export default function GameBoard() {
           <button
             key={index}
             onClick={() => handleTileClick(index)}
-            className={`w-full h-full flex items-center justify-center rounded-xl transition-colors duration-200 ${
-              mark ? 'cursor-default bg-gray-50' : 'cursor-pointer hover:bg-gray-50 focus:bg-gray-100 outline-none'
-            } border-2 ${
-              activeTurn === selfMark && !mark && !winner && !isDraw ? 'border-transparent hover:border-gray-200' : 'border-transparent' // Subtly hint you can click
-            }`}
+            className={`w-full h-full flex items-center justify-center rounded-xl transition-colors duration-200 ${mark ? 'cursor-default bg-gray-50' : 'cursor-pointer hover:bg-gray-50 focus:bg-gray-100 outline-none'
+              } border-2 ${activeTurn === selfMark && !mark && !winner && !isDraw ? 'border-transparent hover:border-gray-200' : 'border-transparent' // Subtly hint you can click
+              }`}
           >
             {mark && (
               <motion.span

@@ -11,47 +11,74 @@ class NakamaService {
     this.client = new Client(SERVER_KEY, HOST, PORT, USE_SSL);
     this.session = null;
     this.socket = null;
+    this.onMatchData = null; // Global listener for match state updates
   }
 
   /**
-   * Authenticate the user via Device Auth to ensure persistent sessions
-   * across reloads without requiring a full login system.
+   * Authenticate the user via Device Auth.
+   *
+   * - The device ID is keyed by username so that two different players in the
+   *   same browser (testing with 2 tabs) get distinct Nakama accounts.
+   * - Always tears down any stale socket first, so a server restart doesn't
+   *   leave a dead socket that blocks the next connect attempt.
    */
   async authenticate(username) {
-    let deviceId = localStorage.getItem('nakama_device_id');
+    // Tear down any stale socket from a previous session / server restart
+    if (this.socket) {
+      try { this.socket.disconnect(); } catch (_) { /* ignore */ }
+      this.socket = null;
+    }
+    this.session = null;
+
+    // Per-username device ID → distinct Nakama account per player name
+    const storageKey = `nakama_device_id_${username}`;
+    let deviceId = localStorage.getItem(storageKey);
     if (!deviceId) {
       deviceId = uuidv4();
-      localStorage.setItem('nakama_device_id', deviceId);
+      localStorage.setItem(storageKey, deviceId);
     }
 
     try {
       this.session = await this.client.authenticateDevice(deviceId, true, username);
-      console.log('Successfully authenticated with Nakama:', this.session.user_id);
+      console.log('[Nakama] Authenticated:', this.session.user_id, 'as', username);
       return this.session;
     } catch (error) {
-      console.error('Authentication failed:', error);
+      console.error('[Nakama] Authentication failed:', error);
       throw error;
     }
   }
 
   /**
-   * Initialize and connect the real-time socket.
+   * Initialize and connect the real-time WebSocket.
+   * Always creates a fresh socket — never reuses a potentially stale one.
    */
   async connectSocket() {
     if (!this.session) {
       throw new Error('Must authenticate before connecting socket.');
     }
 
-    if (!this.socket) {
-      this.socket = this.client.createSocket(USE_SSL, false);
-      try {
-        await this.socket.connect(this.session, true);
-        console.log('Socket connected successfully');
-      } catch (error) {
-        console.error('Socket connection failed:', error);
-        throw error;
-      }
+    // Always create a fresh socket to avoid stale-connection issues
+    if (this.socket) {
+      try { this.socket.disconnect(); } catch (_) { /* ignore */ }
+      this.socket = null;
     }
+
+    this.socket = this.client.createSocket(USE_SSL, false);
+    try {
+      await this.socket.connect(this.session, true);
+
+      // Attach the global match data listener pipeline
+      this.socket.onmatchdata = (data) => {
+        if (this.onMatchData) this.onMatchData(data);
+      };
+
+      console.log('[Nakama] Socket connected successfully');
+    } catch (error) {
+      console.error('[Nakama] Socket connection failed:', error);
+      this.socket = null;
+      throw error;
+    }
+
     return this.socket;
   }
 
@@ -65,7 +92,7 @@ class NakamaService {
 
   async logout() {
     if (this.socket) {
-      this.socket.disconnect();
+      try { this.socket.disconnect(); } catch (_) { /* ignore */ }
       this.socket = null;
     }
     this.session = null;

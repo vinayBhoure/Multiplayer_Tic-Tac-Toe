@@ -4,6 +4,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { AnimatePresence } from 'framer-motion';
 
 import { useGameStore } from './gameStore';
+import { nakamaClient } from './nakamaClient';
 import LoginBox from './components/LoginBox';
 import Matchmaking from './components/Matchmaking';
 import GameBoard from './components/GameBoard';
@@ -11,6 +12,21 @@ import ResultModal from './components/ResultModal';
 
 function App() {
   const appState = useGameStore((state) => state.appState);
+  const processMatchData = useGameStore((state) => state.processMatchData);
+
+  React.useEffect(() => {
+    // Pipe all global match data straight into the store's authoritative parser
+    nakamaClient.onMatchData = (matchData) => {
+      try {
+        const payloadStr = new TextDecoder().decode(matchData.data);
+        const payload = JSON.parse(payloadStr);
+        console.log('[Global] Match Data:', matchData.op_code, payload);
+        processMatchData(payload);
+      } catch (err) {
+        console.error('Failed to parse global match data:', err);
+      }
+    };
+  }, [processMatchData]);
 
   return (
     <div className="w-full min-h-screen flex flex-col items-center justify-center p-4">

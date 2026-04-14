@@ -5,10 +5,10 @@
 
 // --- OpCodes (must match frontend) ---
 var OpCode = {
-    MAKE_MOVE:   1,
+    MAKE_MOVE: 1,
     MATCH_STATE: 2,
     MOVE_REJECT: 3,
-    GAME_OVER:   4,
+    GAME_OVER: 4,
 };
 
 // --- 8 standard Tic-Tac-Toe win lines ---
@@ -21,12 +21,12 @@ var WIN_PATTERNS = [
 // --- Initial state factory ---
 function createInitialState() {
     return {
-        board:       [null, null, null, null, null, null, null, null, null],
-        players:     {},   // userId -> { symbol: "X"|"O", presence: <presence> }
-        symbols:     {},   // "X"|"O" -> userId  (reverse lookup)
+        board: [null, null, null, null, null, null, null, null, null],
+        players: {},   // userId -> { symbol: "X"|"O", presence: <presence> }
+        symbols: {},   // "X"|"O" -> userId  (reverse lookup)
         currentTurn: "X",
-        status:      "waiting",  // waiting -> playing -> finished
-        winner:      null,
+        status: "waiting",  // waiting -> playing -> finished
+        winner: null,
         turnsPlayed: 0,
     };
 }
@@ -79,22 +79,22 @@ function matchJoin(ctx, logger, nk, dispatcher, tick, state, presences) {
     }
 
     // If 2 players are in, start the game
-    if (Object.keys(state.players).length === 2) {
+    if (Object.keys(state.players).length === 2 && state.status === "waiting") {
         state.status = "playing";
-
         // Update label so matchmaker knows this room is full
         dispatcher.matchLabelUpdate("tictactoe-full");
-
-        // Broadcast initial state to both players
-        var statePayload = JSON.stringify({
-            board:       state.board,
-            currentTurn: state.currentTurn,
-            status:      state.status,
-            players:     buildPublicPlayers(state),
-        });
-        dispatcher.broadcastMessage(OpCode.MATCH_STATE, statePayload);
-        logger.info("Match started — broadcasting initial state");
+        logger.info("Match started — status set to playing");
     }
+
+    // Whenever anyone joins, sync the state to everyone to ensure they are updated
+    var statePayload = JSON.stringify({
+        board: state.board,
+        currentTurn: state.currentTurn,
+        status: state.status,
+        players: buildPublicPlayers(state),
+    });
+    dispatcher.broadcastMessage(OpCode.MATCH_STATE, statePayload);
+    logger.info("Broadcasted state after join event");
 
     return { state: state };
 }
@@ -137,7 +137,7 @@ function matchLoop(ctx, logger, nk, dispatcher, tick, state, messages) {
         }
 
         var cellIndex = data.cellIndex;
-        var senderId  = message.sender.userId;
+        var senderId = message.sender.userId;
 
         // ---- VALIDATION 1: Is this player in the match? ----
         if (!state.players[senderId]) {
@@ -182,11 +182,11 @@ function matchLoop(ctx, logger, nk, dispatcher, tick, state, messages) {
             state.winner = state.symbols[winnerSymbol]; // userId of winner
 
             var gameOverPayload = JSON.stringify({
-                board:   state.board,
-                winner:  state.winner,
-                reason:  "win",
-                symbol:  winnerSymbol,
-                status:  state.status,
+                board: state.board,
+                winner: state.winner,
+                reason: "win",
+                symbol: winnerSymbol,
+                status: state.status,
                 players: buildPublicPlayers(state),
             });
             dispatcher.broadcastMessage(OpCode.GAME_OVER, gameOverPayload);
@@ -200,10 +200,10 @@ function matchLoop(ctx, logger, nk, dispatcher, tick, state, messages) {
             state.winner = null;
 
             var drawPayload = JSON.stringify({
-                board:   state.board,
-                winner:  null,
-                reason:  "draw",
-                status:  state.status,
+                board: state.board,
+                winner: null,
+                reason: "draw",
+                status: state.status,
                 players: buildPublicPlayers(state),
             });
             dispatcher.broadcastMessage(OpCode.GAME_OVER, drawPayload);
@@ -216,10 +216,10 @@ function matchLoop(ctx, logger, nk, dispatcher, tick, state, messages) {
 
         // ---- Broadcast updated state ----
         var statePayload = JSON.stringify({
-            board:       state.board,
+            board: state.board,
             currentTurn: state.currentTurn,
-            status:      state.status,
-            players:     buildPublicPlayers(state),
+            status: state.status,
+            players: buildPublicPlayers(state),
         });
         dispatcher.broadcastMessage(OpCode.MATCH_STATE, statePayload);
     }
@@ -251,10 +251,10 @@ function matchLeave(ctx, logger, nk, dispatcher, tick, state, presences) {
             state.winner = remainingUserId;
 
             var gameOverPayload = JSON.stringify({
-                board:   state.board,
-                winner:  remainingUserId,
-                reason:  "opponent_left",
-                status:  state.status,
+                board: state.board,
+                winner: remainingUserId,
+                reason: "opponent_left",
+                status: state.status,
                 players: buildPublicPlayers(state),
             });
             dispatcher.broadcastMessage(OpCode.GAME_OVER, gameOverPayload);
@@ -280,10 +280,10 @@ function matchTerminate(ctx, logger, nk, dispatcher, tick, state, graceSeconds) 
     // Notify any remaining players that the match is ending
     if (state.status === "playing") {
         var payload = JSON.stringify({
-            board:   state.board,
-            winner:  null,
-            reason:  "match_terminated",
-            status:  "finished",
+            board: state.board,
+            winner: null,
+            reason: "match_terminated",
+            status: "finished",
             players: buildPublicPlayers(state),
         });
         dispatcher.broadcastMessage(OpCode.GAME_OVER, payload);
@@ -295,6 +295,28 @@ function matchTerminate(ctx, logger, nk, dispatcher, tick, state, graceSeconds) 
 // --- matchSignal: Stub ---
 function matchSignal(ctx, logger, nk, dispatcher, tick, state, data) {
     return { state: state, data: data };
+}
+
+// =============================================================================
+// Matchmaker Hook
+// =============================================================================
+
+/**
+ * Triggered when the matchmaker finds a pair of players.
+ * Returns the match ID of a NEW authoritative match for them to join.
+ */
+function matchmakerMatched(ctx, logger, nk, matches) {
+    logger.info("Matchmaker found a match for " + matches.length + " players");
+
+    // Create a new authoritative match using our 'tic-tac-toe' handler.
+    // Pass empty params — we don't need to pre-load players here;
+    // each client calls joinMatch() separately which triggers matchJoin().
+    // NOTE: passing the 'matches' presences object causes a serialization
+    // error ("cannot encode params") and must NOT be passed.
+    var matchId = nk.matchCreate("tic-tac-toe", {});
+
+    logger.info("Created authoritative match: " + matchId);
+    return matchId;
 }
 
 // =============================================================================
@@ -328,16 +350,20 @@ function InitModule(ctx, logger, nk, initializer) {
 
     // Register the authoritative match handler
     initializer.registerMatch("tic-tac-toe", {
-        matchInit:        matchInit,
+        matchInit: matchInit,
         matchJoinAttempt: matchJoinAttempt,
-        matchJoin:        matchJoin,
-        matchLoop:        matchLoop,
-        matchLeave:       matchLeave,
-        matchTerminate:   matchTerminate,
-        matchSignal:      matchSignal,
+        matchJoin: matchJoin,
+        matchLoop: matchLoop,
+        matchLeave: matchLeave,
+        matchTerminate: matchTerminate,
+        matchSignal: matchSignal,
     });
 
     logger.info("Match handler 'tic-tac-toe' registered");
+
+    // Register the matchmaker hook
+    initializer.registerMatchmakerMatched(matchmakerMatched);
+    logger.info("MatchmakerMatched hook registered");
 
     // Register the matchmaking RPC
     initializer.registerRpc("rpc_create_match", rpcCreateMatch);
