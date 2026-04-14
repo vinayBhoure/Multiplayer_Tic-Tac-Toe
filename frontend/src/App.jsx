@@ -5,9 +5,9 @@ import { AnimatePresence } from 'framer-motion';
 
 import { useGameStore } from './gameStore';
 import LoginBox from './components/LoginBox';
+import Matchmaking from './components/Matchmaking';
 
 // Placeholders for future phases
-const Matchmaking = () => <div className="text-muted">Matchmaking component coming soon...</div>;
 const GameBoard = () => <div className="text-muted">Game Board component coming soon...</div>;
 const ResultModal = () => <div className="text-muted">Result modal coming soon...</div>;
 
