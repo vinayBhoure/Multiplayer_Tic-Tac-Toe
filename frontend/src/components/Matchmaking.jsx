@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
-import { Search } from 'lucide-react';
+import { Search, Trophy } from 'lucide-react';
 import { useGameStore } from '../gameStore';
 import { nakamaClient } from '../nakamaClient';
 
 export default function Matchmaking() {
   const [isSearching, setIsSearching] = useState(false);
-  const { username, setMatchStarted, resetGame } = useGameStore();
+  const { username, setMatchStarted, resetGame, setAppState } = useGameStore();
 
   useEffect(() => {
     // Initial binding for immediate connectivity
@@ -122,12 +122,21 @@ export default function Matchmaking() {
           Cancel
         </button>
       ) : (
-        <button
-          onClick={handleFindMatch}
-          className="w-full mt-2 bg-gray-900 text-white font-medium py-3 rounded-lg hover:bg-gray-800 transition-all duration-200"
-        >
-          Find Match
-        </button>
+        <>
+          <button
+            onClick={handleFindMatch}
+            className="w-full mt-2 bg-gray-900 text-white font-medium py-3 rounded-lg hover:bg-gray-800 transition-all duration-200"
+          >
+            Find Match
+          </button>
+          <button
+            onClick={() => setAppState('LEADERBOARD')}
+            className="w-full mt-2 flex items-center justify-center gap-2 bg-white text-gray-700 border border-gray-200 font-medium py-3 rounded-lg hover:bg-gray-50 transition-all duration-200"
+          >
+            <Trophy className="w-4 h-4" />
+            Leaderboard
+          </button>
+        </>
       )}
     </motion.div>
   );

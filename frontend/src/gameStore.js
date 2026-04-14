@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { nakamaClient } from './nakamaClient';
 
 export const useGameStore = create((set, get) => ({
-  appState: 'LOGIN', // 'LOGIN' | 'MATCHMAKING' | 'PLAYING' | 'GAME_OVER'
+  appState: 'LOGIN', // 'LOGIN' | 'MATCHMAKING' | 'LEADERBOARD' | 'PLAYING' | 'GAME_OVER'
   username: '',
   matchId: null,
   board: Array(9).fill(null),
@@ -11,6 +11,11 @@ export const useGameStore = create((set, get) => ({
   opponent: null,
   winner: null,
   isDraw: false,
+  gameOverReason: null,
+
+  // Leaderboard state
+  leaderboard: [],
+  isLoadingLeaderboard: false,
 
   setUsername: (username) => set({ username }),
   setAppState: (appState) => set({ appState }),
@@ -26,6 +31,8 @@ export const useGameStore = create((set, get) => ({
       activeTurn: 'X',
       winner: null,
       isDraw: false,
+      gameOverReason: null,
+      turnTimer: 30,
     }),
 
   // Fully server-authoritative state replacement.
@@ -41,17 +48,15 @@ export const useGameStore = create((set, get) => ({
   // Centralized processing of any match data from server
   processMatchData: (payload) =>
     set((state) => {
-      const { board, currentTurn, status, players, winner, symbol } = payload;
+      const { board, currentTurn, status, players, winner, symbol, reason, turnTimer } = payload;
 
       const session = nakamaClient.getSession();
       const selfId = session ? session.user_id : null;
 
       // 1. Always resolve selfMark from server payload (authoritative).
-      // The optimistic mark set during matchmaking may differ if the server's
-      // join order differs from the matchmaker array order.
       let selfMark = state.selfMark;
       if (players && selfId && players[selfId]) {
-        selfMark = players[selfId].symbol; // Always trust server
+        selfMark = players[selfId].symbol;
       }
 
       // 2. Determine winner symbol
@@ -63,7 +68,9 @@ export const useGameStore = create((set, get) => ({
         selfMark,
         winner: winnerMark,
         isDraw: status === 'finished' && !winnerMark,
-        appState: (status === 'finished' || winnerMark) ? 'GAME_OVER' : 'PLAYING'
+        appState: (status === 'finished' || winnerMark) ? 'GAME_OVER' : 'PLAYING',
+        gameOverReason: reason || state.gameOverReason,
+        turnTimer: turnTimer !== undefined ? turnTimer : state.turnTimer,
       };
     }),
 
@@ -77,5 +84,21 @@ export const useGameStore = create((set, get) => ({
       opponent: null,
       winner: null,
       isDraw: false,
+      gameOverReason: null,
+      turnTimer: 30,
     })),
+
+  // Fetch leaderboard data via RPC
+  fetchLeaderboard: async () => {
+    set({ isLoadingLeaderboard: true });
+    try {
+      const session = nakamaClient.getSession();
+      const result = await nakamaClient.client.rpc(session, 'rpc_get_leaderboard', JSON.stringify({ limit: 10 }));
+      const data = JSON.parse(result.payload || '[]');
+      set({ leaderboard: data, isLoadingLeaderboard: false });
+    } catch (err) {
+      console.error('[Leaderboard] Failed to fetch:', err);
+      set({ isLoadingLeaderboard: false });
+    }
+  },
 }));

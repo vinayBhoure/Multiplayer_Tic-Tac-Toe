@@ -7,6 +7,7 @@ import { useGameStore } from './gameStore';
 import { nakamaClient } from './nakamaClient';
 import LoginBox from './components/LoginBox';
 import Matchmaking from './components/Matchmaking';
+import LeaderboardScreen from './components/LeaderboardScreen';
 import GameBoard from './components/GameBoard';
 import ResultModal from './components/ResultModal';
 
@@ -35,6 +36,7 @@ function App() {
       <AnimatePresence mode="wait">
         {appState === 'LOGIN' && <LoginBox key="login" />}
         {appState === 'MATCHMAKING' && <Matchmaking key="matchmaking" />}
+        {appState === 'LEADERBOARD' && <LeaderboardScreen key="leaderboard" />}
         {(appState === 'PLAYING' || appState === 'GAME_OVER') && (
           <React.Fragment key="game">
             <GameBoard />
@@ -47,3 +49,4 @@ function App() {
 }
 
 export default App;
+
