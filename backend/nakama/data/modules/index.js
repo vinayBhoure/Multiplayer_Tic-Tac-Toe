@@ -298,6 +298,28 @@ function matchSignal(ctx, logger, nk, dispatcher, tick, state, data) {
 }
 
 // =============================================================================
+// RPC Endpoints
+// =============================================================================
+
+// --- rpcCreateMatch: Find an open match or create a new one ---
+function rpcCreateMatch(ctx, logger, nk, payload) {
+    // Look for an existing open match (label "tictactoe", 0-2 players)
+    var matches = nk.matchList(10, true, "tictactoe", 0, 2, "");
+
+    if (matches && matches.length > 0) {
+        // Found an open match — return its ID for the client to join
+        var matchId = matches[0].matchId;
+        logger.info("Found open match: " + matchId);
+        return JSON.stringify({ matchId: matchId });
+    }
+
+    // No open match found — create a new one
+    var newMatchId = nk.matchCreate("tic-tac-toe", {});
+    logger.info("Created new match: " + newMatchId);
+    return JSON.stringify({ matchId: newMatchId });
+}
+
+// =============================================================================
 // Module Entry Point
 // =============================================================================
 
@@ -316,4 +338,8 @@ function InitModule(ctx, logger, nk, initializer) {
     });
 
     logger.info("Match handler 'tic-tac-toe' registered");
+
+    // Register the matchmaking RPC
+    initializer.registerRpc("rpc_create_match", rpcCreateMatch);
+    logger.info("RPC 'rpc_create_match' registered");
 }
