@@ -42,3 +42,11 @@
 - [x] Implemented 30-second server-authoritative turn timer with auto-forfeit logic
 - [x] Built SVG timer ring UI with adaptive color thresholds (Amber at 15s, Red at 10s)
 - [x] Updated game status and result modals to reflect timeout and forfeit reasons
+
+## Connectivity & Infrastructure Stabilisation (Post-Phase 4)
+- [x] Fixed 409 Conflict authentication errors by switching to deterministic username-based Device IDs
+- [x] Resolved 400 Bad Request by ensuring Device IDs meet the Nakama minimum length requirement (>10 chars)
+- [x] Fixed Leaderboard write crash by removing negative increments (-5) that violated database check constraints
+- [x] Isolated backend scoring tasks into individual try/catch blocks for transactional integrity
+- [x] Fixed Frontend Leaderboard display failure by removing redundant JSON.parse() on already-parsed SDK payloads
+

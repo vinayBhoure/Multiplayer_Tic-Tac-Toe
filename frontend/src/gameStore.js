@@ -94,7 +94,11 @@ export const useGameStore = create((set, get) => ({
     try {
       const session = nakamaClient.getSession();
       const result = await nakamaClient.client.rpc(session, 'rpc_get_leaderboard', JSON.stringify({ limit: 10 }));
-      const data = JSON.parse(result.payload || '[]');
+      
+      // The Nakama JS SDK automatically parses JSON responses. 
+      // result.payload is already an array of leaderboard objects, NOT a JSON string.
+      const data = Array.isArray(result.payload) ? result.payload : [];
+      
       set({ leaderboard: data, isLoadingLeaderboard: false });
     } catch (err) {
       console.error('[Leaderboard] Failed to fetch:', err);

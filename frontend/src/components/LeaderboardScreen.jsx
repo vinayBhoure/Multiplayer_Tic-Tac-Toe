@@ -100,11 +100,10 @@ export default function LeaderboardScreen() {
                   delay: index * 0.06,
                   ease: [0.16, 1, 0.3, 1],
                 }}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 ${bg} ${
-                  isSelf
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl border transition-all duration-200 ${bg} ${isSelf
                     ? 'ring-2 ring-gray-900 ring-offset-1 border-gray-900'
                     : ''
-                }`}
+                  }`}
               >
                 {/* Rank */}
                 <div className="w-8 text-center flex-shrink-0">
@@ -120,9 +119,8 @@ export default function LeaderboardScreen() {
                 {/* Username */}
                 <div className="flex-1 min-w-0">
                   <span
-                    className={`text-sm font-medium truncate block ${
-                      isSelf ? 'text-gray-900 font-semibold' : 'text-gray-700'
-                    }`}
+                    className={`text-sm font-medium truncate block ${isSelf ? 'text-gray-900 font-semibold' : 'text-gray-700'
+                      }`}
                   >
                     {entry.username}
                     {isSelf && (
@@ -136,13 +134,12 @@ export default function LeaderboardScreen() {
                 {/* Score */}
                 <div className="flex-shrink-0">
                   <span
-                    className={`text-sm font-semibold tabular-nums ${
-                      entry.score > 0
+                    className={`text-sm font-semibold tabular-nums ${entry.score > 0
                         ? 'text-gray-900'
                         : entry.score < 0
-                        ? 'text-red-400'
-                        : 'text-gray-400'
-                    }`}
+                          ? 'text-red-400'
+                          : 'text-gray-400'
+                      }`}
                   >
                     {entry.score > 0 ? '+' : ''}
                     {entry.score}

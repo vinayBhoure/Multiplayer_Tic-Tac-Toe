@@ -53,35 +53,41 @@ var LEADERBOARD_ID = "tictactoe_leaderboard";
 
 /**
  * Writes scores to the leaderboard after a game concludes.
- * Win: +10, Loss: -5, Draw: +1 for both.
+ * Win: +10, Loss: 0, Draw: +3 for both.
+ * Nakama's default DB constraint prevents scores < 0, so avoid negative increments.
  */
 function writeGameScores(nk, logger, state, winnerId) {
     var userIds = Object.keys(state.players);
-    try {
-        if (winnerId) {
-            // Win/Loss scenario
-            for (var i = 0; i < userIds.length; i++) {
-                var uid = userIds[i];
-                var uname = state.players[uid].username || "unknown";
+    if (winnerId) {
+        // Win/Loss scenario
+        for (var i = 0; i < userIds.length; i++) {
+            var uid = userIds[i];
+            var uname = state.players[uid].username || "unknown";
+            try {
                 if (uid === winnerId) {
                     nk.leaderboardRecordWrite(LEADERBOARD_ID, uid, uname, 10, 0);
                     logger.info("Leaderboard: +10 for winner " + uname);
                 } else {
-                    nk.leaderboardRecordWrite(LEADERBOARD_ID, uid, uname, -5, 0);
-                    logger.info("Leaderboard: -5 for loser " + uname);
+                    // We don't decrement because falling below 0 throws SQL constraint error
+                    nk.leaderboardRecordWrite(LEADERBOARD_ID, uid, uname, 0, 0);
+                    logger.info("Leaderboard: 0 (loss) for loser " + uname);
                 }
-            }
-        } else {
-            // Draw scenario
-            for (var j = 0; j < userIds.length; j++) {
-                var uid2 = userIds[j];
-                var uname2 = state.players[uid2].username || "unknown";
-                nk.leaderboardRecordWrite(LEADERBOARD_ID, uid2, uname2, 1, 0);
-                logger.info("Leaderboard: +1 (draw) for " + uname2);
+            } catch (e) {
+                logger.error("Failed to write leaderboard score for " + uname + ": " + e.message);
             }
         }
-    } catch (e) {
-        logger.error("Failed to write leaderboard scores: " + e.message);
+    } else {
+        // Draw scenario
+        for (var j = 0; j < userIds.length; j++) {
+            var uid2 = userIds[j];
+            var uname2 = state.players[uid2].username || "unknown";
+            try {
+                nk.leaderboardRecordWrite(LEADERBOARD_ID, uid2, uname2, 3, 0);
+                logger.info("Leaderboard: +3 (draw) for " + uname2);
+            } catch (e) {
+                logger.error("Failed to write leaderboard score for draw " + uname2 + ": " + e.message);
+            }
+        }
     }
 }
 
