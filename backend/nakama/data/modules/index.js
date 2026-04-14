@@ -99,8 +99,131 @@ function matchJoin(ctx, logger, nk, dispatcher, tick, state, presences) {
     return { state: state };
 }
 
-// --- matchLoop: Stub (will be replaced with full game engine) ---
+// --- checkWinner: Checks all 8 win patterns ---
+function checkWinner(board) {
+    for (var i = 0; i < WIN_PATTERNS.length; i++) {
+        var a = WIN_PATTERNS[i][0];
+        var b = WIN_PATTERNS[i][1];
+        var c = WIN_PATTERNS[i][2];
+        if (board[a] !== null && board[a] === board[b] && board[b] === board[c]) {
+            return board[a]; // returns "X" or "O"
+        }
+    }
+    return null;
+}
+
+// --- matchLoop: Core game engine — processes moves, validates, detects win/draw ---
 function matchLoop(ctx, logger, nk, dispatcher, tick, state, messages) {
+    // Only process messages when game is active
+    if (state.status !== "playing") {
+        return { state: state };
+    }
+
+    for (var i = 0; i < messages.length; i++) {
+        var message = messages[i];
+
+        // Only handle MAKE_MOVE opcode
+        if (message.opCode !== OpCode.MAKE_MOVE) {
+            continue;
+        }
+
+        // Parse the move payload
+        var data;
+        try {
+            data = JSON.parse(nk.binaryToString(message.data));
+        } catch (e) {
+            logger.warn("Invalid JSON from " + message.sender.userId);
+            continue;
+        }
+
+        var cellIndex = data.cellIndex;
+        var senderId  = message.sender.userId;
+
+        // ---- VALIDATION 1: Is this player in the match? ----
+        if (!state.players[senderId]) {
+            logger.warn("Unknown player tried to move: " + senderId);
+            continue;
+        }
+
+        // ---- VALIDATION 2: Is it this player's turn? ----
+        var senderSymbol = state.players[senderId].symbol;
+        if (senderSymbol !== state.currentTurn) {
+            logger.warn("Not your turn: " + senderId + " (" + senderSymbol + ")");
+            var rejectPayload = JSON.stringify({ reason: "not_your_turn" });
+            dispatcher.broadcastMessage(OpCode.MOVE_REJECT, rejectPayload, [message.sender]);
+            continue;
+        }
+
+        // ---- VALIDATION 3: Is cellIndex valid (0-8)? ----
+        if (typeof cellIndex !== "number" || cellIndex < 0 || cellIndex > 8) {
+            logger.warn("Invalid cell index: " + cellIndex);
+            var rejectPayload2 = JSON.stringify({ reason: "invalid_cell" });
+            dispatcher.broadcastMessage(OpCode.MOVE_REJECT, rejectPayload2, [message.sender]);
+            continue;
+        }
+
+        // ---- VALIDATION 4: Is the cell empty? ----
+        if (state.board[cellIndex] !== null) {
+            logger.warn("Cell already occupied: " + cellIndex);
+            var rejectPayload3 = JSON.stringify({ reason: "cell_occupied" });
+            dispatcher.broadcastMessage(OpCode.MOVE_REJECT, rejectPayload3, [message.sender]);
+            continue;
+        }
+
+        // ---- MOVE IS VALID — Apply it ----
+        state.board[cellIndex] = senderSymbol;
+        state.turnsPlayed++;
+        logger.info("Move: " + senderSymbol + " -> cell " + cellIndex);
+
+        // ---- Check for winner ----
+        var winnerSymbol = checkWinner(state.board);
+        if (winnerSymbol) {
+            state.status = "finished";
+            state.winner = state.symbols[winnerSymbol]; // userId of winner
+
+            var gameOverPayload = JSON.stringify({
+                board:   state.board,
+                winner:  state.winner,
+                reason:  "win",
+                symbol:  winnerSymbol,
+                status:  state.status,
+                players: buildPublicPlayers(state),
+            });
+            dispatcher.broadcastMessage(OpCode.GAME_OVER, gameOverPayload);
+            logger.info("Game over — " + winnerSymbol + " wins!");
+            return { state: state };
+        }
+
+        // ---- Check for draw ----
+        if (state.turnsPlayed >= 9) {
+            state.status = "finished";
+            state.winner = null;
+
+            var drawPayload = JSON.stringify({
+                board:   state.board,
+                winner:  null,
+                reason:  "draw",
+                status:  state.status,
+                players: buildPublicPlayers(state),
+            });
+            dispatcher.broadcastMessage(OpCode.GAME_OVER, drawPayload);
+            logger.info("Game over — draw!");
+            return { state: state };
+        }
+
+        // ---- Switch turn ----
+        state.currentTurn = (state.currentTurn === "X") ? "O" : "X";
+
+        // ---- Broadcast updated state ----
+        var statePayload = JSON.stringify({
+            board:       state.board,
+            currentTurn: state.currentTurn,
+            status:      state.status,
+            players:     buildPublicPlayers(state),
+        });
+        dispatcher.broadcastMessage(OpCode.MATCH_STATE, statePayload);
+    }
+
     return { state: state };
 }
 
