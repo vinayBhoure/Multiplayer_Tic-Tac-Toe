@@ -43,6 +43,46 @@ function buildPublicPlayers(state) {
 }
 
 // =============================================================================
+// Leaderboard Helpers
+// =============================================================================
+
+var LEADERBOARD_ID = "tictactoe_leaderboard";
+
+/**
+ * Writes scores to the leaderboard after a game concludes.
+ * Win: +10, Loss: -5, Draw: +1 for both.
+ */
+function writeGameScores(nk, logger, state, winnerId) {
+    var userIds = Object.keys(state.players);
+    try {
+        if (winnerId) {
+            // Win/Loss scenario
+            for (var i = 0; i < userIds.length; i++) {
+                var uid = userIds[i];
+                var uname = state.players[uid].username || "unknown";
+                if (uid === winnerId) {
+                    nk.leaderboardRecordWrite(LEADERBOARD_ID, uid, uname, 10, 0);
+                    logger.info("Leaderboard: +10 for winner " + uname);
+                } else {
+                    nk.leaderboardRecordWrite(LEADERBOARD_ID, uid, uname, -5, 0);
+                    logger.info("Leaderboard: -5 for loser " + uname);
+                }
+            }
+        } else {
+            // Draw scenario
+            for (var j = 0; j < userIds.length; j++) {
+                var uid2 = userIds[j];
+                var uname2 = state.players[uid2].username || "unknown";
+                nk.leaderboardRecordWrite(LEADERBOARD_ID, uid2, uname2, 1, 0);
+                logger.info("Leaderboard: +1 (draw) for " + uname2);
+            }
+        }
+    } catch (e) {
+        logger.error("Failed to write leaderboard scores: " + e.message);
+    }
+}
+
+// =============================================================================
 // Match Handler Lifecycle Functions
 // =============================================================================
 
@@ -73,9 +113,9 @@ function matchJoin(ctx, logger, nk, dispatcher, tick, state, presences) {
         }
 
         var symbol = playerCount === 0 ? "X" : "O";
-        state.players[presence.userId] = { symbol: symbol, presence: presence };
+        state.players[presence.userId] = { symbol: symbol, presence: presence, username: presence.username };
         state.symbols[symbol] = presence.userId;
-        logger.info("Player joined: " + presence.userId + " as " + symbol);
+        logger.info("Player joined: " + presence.userId + " (" + presence.username + ") as " + symbol);
     }
 
     // If 2 players are in, start the game
@@ -181,6 +221,9 @@ function matchLoop(ctx, logger, nk, dispatcher, tick, state, messages) {
             state.status = "finished";
             state.winner = state.symbols[winnerSymbol]; // userId of winner
 
+            // Write leaderboard scores
+            writeGameScores(nk, logger, state, state.winner);
+
             var gameOverPayload = JSON.stringify({
                 board: state.board,
                 winner: state.winner,
@@ -198,6 +241,9 @@ function matchLoop(ctx, logger, nk, dispatcher, tick, state, messages) {
         if (state.turnsPlayed >= 9) {
             state.status = "finished";
             state.winner = null;
+
+            // Write leaderboard scores (draw)
+            writeGameScores(nk, logger, state, null);
 
             var drawPayload = JSON.stringify({
                 board: state.board,
@@ -249,6 +295,9 @@ function matchLeave(ctx, logger, nk, dispatcher, tick, state, presences) {
             }
 
             state.winner = remainingUserId;
+
+            // Write leaderboard scores (forfeit)
+            writeGameScores(nk, logger, state, remainingUserId);
 
             var gameOverPayload = JSON.stringify({
                 board: state.board,
@@ -341,12 +390,60 @@ function rpcCreateMatch(ctx, logger, nk, payload) {
     return JSON.stringify({ matchId: newMatchId });
 }
 
+// --- rpcGetLeaderboard: Fetch top players from the leaderboard ---
+function rpcGetLeaderboard(ctx, logger, nk, payload) {
+    var limit = 10;
+    if (payload) {
+        try {
+            var parsed = JSON.parse(payload);
+            if (parsed.limit && typeof parsed.limit === "number") {
+                limit = Math.min(parsed.limit, 100); // Cap at 100
+            }
+        } catch (e) {
+            // Use default limit
+        }
+    }
+
+    try {
+        var records = nk.leaderboardRecordsList(LEADERBOARD_ID, null, limit, null, 0);
+        var results = [];
+        if (records && records.records) {
+            for (var i = 0; i < records.records.length; i++) {
+                var r = records.records[i];
+                results.push({
+                    rank: r.rank,
+                    username: r.username || "unknown",
+                    score: r.score,
+                    userId: r.ownerId,
+                });
+            }
+        }
+        return JSON.stringify(results);
+    } catch (e) {
+        logger.error("Failed to fetch leaderboard: " + e.message);
+        return JSON.stringify([]);
+    }
+}
+
 // =============================================================================
 // Module Entry Point
 // =============================================================================
 
 function InitModule(ctx, logger, nk, initializer) {
     logger.info("JS module loaded successfully");
+
+    // Create the leaderboard (idempotent — safe to call on every restart)
+    try {
+        nk.leaderboardCreate(
+            LEADERBOARD_ID,  // id
+            true,            // authoritative
+            "desc",          // sort order: descending (highest first)
+            "incr"           // operator: increment
+        );
+        logger.info("Leaderboard '" + LEADERBOARD_ID + "' created/verified");
+    } catch (e) {
+        logger.error("Failed to create leaderboard: " + e.message);
+    }
 
     // Register the authoritative match handler
     initializer.registerMatch("tic-tac-toe", {
@@ -365,7 +462,10 @@ function InitModule(ctx, logger, nk, initializer) {
     initializer.registerMatchmakerMatched(matchmakerMatched);
     logger.info("MatchmakerMatched hook registered");
 
-    // Register the matchmaking RPC
+    // Register RPCs
     initializer.registerRpc("rpc_create_match", rpcCreateMatch);
     logger.info("RPC 'rpc_create_match' registered");
+
+    initializer.registerRpc("rpc_get_leaderboard", rpcGetLeaderboard);
+    logger.info("RPC 'rpc_get_leaderboard' registered");
 }
