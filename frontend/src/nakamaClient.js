@@ -30,13 +30,10 @@ class NakamaService {
     }
     this.session = null;
 
-    // Per-username device ID → distinct Nakama account per player name
-    const storageKey = `nakama_device_id_${username}`;
-    let deviceId = localStorage.getItem(storageKey);
-    if (!deviceId) {
-      deviceId = uuidv4();
-      localStorage.setItem(storageKey, deviceId);
-    }
+    // Per-username deterministic device ID → distinct Nakama account per player name.
+    // Nakama requires device IDs to be *at least* 10 characters long.
+    // We add a long enough prefix to guarantee even a 1-character username works.
+    const deviceId = `tic_tac_toe_device_${username}`;
 
     try {
       this.session = await this.client.authenticateDevice(deviceId, true, username);

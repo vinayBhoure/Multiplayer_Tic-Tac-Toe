@@ -33,3 +33,12 @@
 - [x] Verified Nakama rejection resilience against malicious inputs (out-of-turn, duplicate cell moves)
 - [x] Cleaned up vestigial console debug traces across Frontend React components
 - [x] Finalized user-friendly error pathway toast notifications
+
+## Bonus Features: Leaderboard & Turn Timers
+- [x] Created authoritative lifetime leaderboard `tictactoe_leaderboard` on backend
+- [x] Implemented scoring model (+10 Win, -5 Loss, +1 Draw) with persistence
+- [x] Added `rpc_get_leaderboard` for ranked global standings
+- [x] Developed separate Leaderboard Screen with top 10 display and rank medals
+- [x] Implemented 30-second server-authoritative turn timer with auto-forfeit logic
+- [x] Built SVG timer ring UI with adaptive color thresholds (Amber at 15s, Red at 10s)
+- [x] Updated game status and result modals to reflect timeout and forfeit reasons
