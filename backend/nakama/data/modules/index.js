@@ -227,13 +227,68 @@ function matchLoop(ctx, logger, nk, dispatcher, tick, state, messages) {
     return { state: state };
 }
 
-// --- matchLeave: Stub (will be replaced with disconnect handling) ---
+// --- matchLeave: Handles player disconnect — awards forfeit win ---
 function matchLeave(ctx, logger, nk, dispatcher, tick, state, presences) {
+    for (var i = 0; i < presences.length; i++) {
+        var presence = presences[i];
+        var leaverId = presence.userId;
+        logger.info("Player left: " + leaverId);
+
+        // If game was in progress, opponent wins by forfeit
+        if (state.status === "playing" && state.players[leaverId]) {
+            state.status = "finished";
+
+            // Find the remaining player
+            var remainingUserId = null;
+            var userIds = Object.keys(state.players);
+            for (var j = 0; j < userIds.length; j++) {
+                if (userIds[j] !== leaverId) {
+                    remainingUserId = userIds[j];
+                    break;
+                }
+            }
+
+            state.winner = remainingUserId;
+
+            var gameOverPayload = JSON.stringify({
+                board:   state.board,
+                winner:  remainingUserId,
+                reason:  "opponent_left",
+                status:  state.status,
+                players: buildPublicPlayers(state),
+            });
+            dispatcher.broadcastMessage(OpCode.GAME_OVER, gameOverPayload);
+            logger.info("Game over — " + leaverId + " left, " + remainingUserId + " wins by forfeit");
+        }
+
+        // Clean up player from state
+        delete state.players[leaverId];
+    }
+
+    // If no players left, signal match to end
+    if (Object.keys(state.players).length === 0) {
+        return null; // Returning null ends the match
+    }
+
     return { state: state };
 }
 
-// --- matchTerminate: Stub ---
+// --- matchTerminate: Notifies players on server-initiated match end ---
 function matchTerminate(ctx, logger, nk, dispatcher, tick, state, graceSeconds) {
+    logger.info("Match terminating with " + graceSeconds + "s grace period");
+
+    // Notify any remaining players that the match is ending
+    if (state.status === "playing") {
+        var payload = JSON.stringify({
+            board:   state.board,
+            winner:  null,
+            reason:  "match_terminated",
+            status:  "finished",
+            players: buildPublicPlayers(state),
+        });
+        dispatcher.broadcastMessage(OpCode.GAME_OVER, payload);
+    }
+
     return { state: state };
 }
 
