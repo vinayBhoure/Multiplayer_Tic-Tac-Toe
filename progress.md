@@ -29,3 +29,7 @@
 - [x] Fixed critical backend crash in `matchmakerMatched` by removing unserializable params from `nk.matchCreate`
 - [x] Added comprehensive debug logging to `GameBoard.jsx` for move tracing and error handling
 - [x] Verified full real-time gameplay loop across multiple tabs
+- [x] Conducted E2E validations for win, draw, and network disconnect states
+- [x] Verified Nakama rejection resilience against malicious inputs (out-of-turn, duplicate cell moves)
+- [x] Cleaned up vestigial console debug traces across Frontend React components
+- [x] Finalized user-friendly error pathway toast notifications
