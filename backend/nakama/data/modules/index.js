@@ -19,15 +19,18 @@ var WIN_PATTERNS = [
 ];
 
 // --- Initial state factory ---
+var TURN_TIMER_MAX = 30; // seconds per turn
+
 function createInitialState() {
     return {
         board: [null, null, null, null, null, null, null, null, null],
-        players: {},   // userId -> { symbol: "X"|"O", presence: <presence> }
+        players: {},   // userId -> { symbol: "X"|"O", presence: <presence>, username }
         symbols: {},   // "X"|"O" -> userId  (reverse lookup)
         currentTurn: "X",
         status: "waiting",  // waiting -> playing -> finished
         winner: null,
         turnsPlayed: 0,
+        turnTimer: TURN_TIMER_MAX,
     };
 }
 
@@ -132,6 +135,7 @@ function matchJoin(ctx, logger, nk, dispatcher, tick, state, presences) {
         currentTurn: state.currentTurn,
         status: state.status,
         players: buildPublicPlayers(state),
+        turnTimer: state.turnTimer,
     });
     dispatcher.broadcastMessage(OpCode.MATCH_STATE, statePayload);
     logger.info("Broadcasted state after join event");
@@ -156,6 +160,37 @@ function checkWinner(board) {
 function matchLoop(ctx, logger, nk, dispatcher, tick, state, messages) {
     // Only process messages when game is active
     if (state.status !== "playing") {
+        return { state: state };
+    }
+
+    // ---- TURN TIMER: Decrement each tick (1 tick = 1 second) ----
+    state.turnTimer--;
+
+    if (state.turnTimer <= 0) {
+        // Current turn player loses by timeout
+        var timedOutSymbol = state.currentTurn;
+        var timedOutPlayerId = state.symbols[timedOutSymbol];
+        var opponentSymbol = (timedOutSymbol === "X") ? "O" : "X";
+        var opponentId = state.symbols[opponentSymbol];
+
+        state.status = "finished";
+        state.winner = opponentId;
+        state.turnTimer = 0;
+
+        // Write leaderboard scores (timeout = same as win/loss)
+        writeGameScores(nk, logger, state, opponentId);
+
+        var timeoutPayload = JSON.stringify({
+            board: state.board,
+            winner: opponentId,
+            reason: "timeout",
+            symbol: opponentSymbol,
+            status: state.status,
+            players: buildPublicPlayers(state),
+            turnTimer: 0,
+        });
+        dispatcher.broadcastMessage(OpCode.GAME_OVER, timeoutPayload);
+        logger.info("Game over — " + timedOutSymbol + " timed out! " + opponentSymbol + " wins.");
         return { state: state };
     }
 
@@ -231,6 +266,7 @@ function matchLoop(ctx, logger, nk, dispatcher, tick, state, messages) {
                 symbol: winnerSymbol,
                 status: state.status,
                 players: buildPublicPlayers(state),
+                turnTimer: 0,
             });
             dispatcher.broadcastMessage(OpCode.GAME_OVER, gameOverPayload);
             logger.info("Game over — " + winnerSymbol + " wins!");
@@ -251,14 +287,16 @@ function matchLoop(ctx, logger, nk, dispatcher, tick, state, messages) {
                 reason: "draw",
                 status: state.status,
                 players: buildPublicPlayers(state),
+                turnTimer: 0,
             });
             dispatcher.broadcastMessage(OpCode.GAME_OVER, drawPayload);
             logger.info("Game over — draw!");
             return { state: state };
         }
 
-        // ---- Switch turn ----
+        // ---- Switch turn and reset timer ----
         state.currentTurn = (state.currentTurn === "X") ? "O" : "X";
+        state.turnTimer = TURN_TIMER_MAX;
 
         // ---- Broadcast updated state ----
         var statePayload = JSON.stringify({
@@ -266,8 +304,21 @@ function matchLoop(ctx, logger, nk, dispatcher, tick, state, messages) {
             currentTurn: state.currentTurn,
             status: state.status,
             players: buildPublicPlayers(state),
+            turnTimer: state.turnTimer,
         });
         dispatcher.broadcastMessage(OpCode.MATCH_STATE, statePayload);
+    }
+
+    // ---- Periodic timer sync (every tick while playing) ----
+    if (state.status === "playing" && messages.length === 0) {
+        var timerSyncPayload = JSON.stringify({
+            board: state.board,
+            currentTurn: state.currentTurn,
+            status: state.status,
+            players: buildPublicPlayers(state),
+            turnTimer: state.turnTimer,
+        });
+        dispatcher.broadcastMessage(OpCode.MATCH_STATE, timerSyncPayload);
     }
 
     return { state: state };
@@ -305,6 +356,7 @@ function matchLeave(ctx, logger, nk, dispatcher, tick, state, presences) {
                 reason: "opponent_left",
                 status: state.status,
                 players: buildPublicPlayers(state),
+                turnTimer: 0,
             });
             dispatcher.broadcastMessage(OpCode.GAME_OVER, gameOverPayload);
             logger.info("Game over — " + leaverId + " left, " + remainingUserId + " wins by forfeit");
@@ -334,6 +386,7 @@ function matchTerminate(ctx, logger, nk, dispatcher, tick, state, graceSeconds) 
             reason: "match_terminated",
             status: "finished",
             players: buildPublicPlayers(state),
+            turnTimer: 0,
         });
         dispatcher.broadcastMessage(OpCode.GAME_OVER, payload);
     }
