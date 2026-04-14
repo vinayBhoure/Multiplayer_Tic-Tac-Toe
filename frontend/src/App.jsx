@@ -7,9 +7,7 @@ import { useGameStore } from './gameStore';
 import LoginBox from './components/LoginBox';
 import Matchmaking from './components/Matchmaking';
 import GameBoard from './components/GameBoard';
-
-// Placeholders for future phases
-const ResultModal = () => <div className="text-muted">Result modal coming soon...</div>;
+import ResultModal from './components/ResultModal';
 
 function App() {
   const appState = useGameStore((state) => state.appState);
