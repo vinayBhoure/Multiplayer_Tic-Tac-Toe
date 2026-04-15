@@ -1,9 +1,9 @@
 import { Client } from '@heroiclabs/nakama-js';
 import { v4 as uuidv4 } from 'uuid';
 
-const USE_SSL = false;
-const HOST = '127.0.0.1';
-const PORT = '7350';
+const USE_SSL = import.meta.env.VITE_NAKAMA_USE_SSL === 'true';
+const HOST = import.meta.env.VITE_NAKAMA_HOST || '127.0.0.1';
+const PORT = import.meta.env.VITE_NAKAMA_PORT || '7350';
 const SERVER_KEY = import.meta.env.VITE_NAKAMA_SERVER_KEY || 'defaultkey';
 
 class NakamaService {
