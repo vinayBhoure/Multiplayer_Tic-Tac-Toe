@@ -50,3 +50,12 @@
 - [x] Isolated backend scoring tasks into individual try/catch blocks for transactional integrity
 - [x] Fixed Frontend Leaderboard display failure by removing redundant JSON.parse() on already-parsed SDK payloads
 
+## Phase 5: Security Audit & Hardening
+- [x] Conducted full security audit (identifying exposed secrets, auth bypasses, and data sanitization gaps)
+- [x] Migrated all backend database and console credentials to `.env` environment variables
+- [x] Secured frontend API keys via Vite environment variables
+- [x] Closed critical authentication bypass by replacing deterministic device IDs with randomized secure UUIDs
+- [x] Resolved local multi-tab testing conflicts by switching to `sessionStorage` for tab-isolated device IDs
+- [x] Implemented explicit session authorization checks on all custom RPC endpoints (`ctx.userId`)
+- [x] Added runtime input validation and sanitization for server-broadcasted symbols in `gameStore.js`
+- [x] Re-synced and verified full real-time gameplay loop stability post-hardening

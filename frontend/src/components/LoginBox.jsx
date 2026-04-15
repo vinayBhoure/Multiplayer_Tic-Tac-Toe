@@ -8,7 +8,7 @@ import { LogIn } from 'lucide-react';
 export default function LoginBox() {
   const [username, setInputUsername] = useState('');
   const [isConnecting, setIsConnecting] = useState(false);
-  
+
   const { setUsername, setAppState } = useGameStore();
 
   const handleJoin = async (e) => {
@@ -26,15 +26,22 @@ export default function LoginBox() {
     try {
       await nakamaClient.authenticate(username.trim());
       await nakamaClient.connectSocket();
-      
+
       setUsername(username.trim());
       setAppState('MATCHMAKING');
       toast.success(`Welcome, ${username.trim()}!`, { position: 'top-center', theme: 'light' });
     } catch (error) {
-      toast.error('Failed to connect to the game server. Ensure Nakama is running.', {
-        position: 'top-center',
-        theme: 'light',
-      });
+      if (error.status === 409) {
+        toast.error('This username is already linked to another device. Please try a different name.', {
+          position: 'top-center',
+          theme: 'light',
+        });
+      } else {
+        toast.error('Failed to connect to the game server. Ensure Nakama is running.', {
+          position: 'top-center',
+          theme: 'light',
+        });
+      }
       setIsConnecting(false);
     }
   };
@@ -50,7 +57,7 @@ export default function LoginBox() {
       <div className="bg-gray-100 p-4 rounded-full mb-6">
         <LogIn className="w-8 h-8 text-gray-700" />
       </div>
-      
+
       <h2 className="font-serif text-3xl font-semibold mb-2 text-center text-gray-900">
         Enter Game
       </h2>

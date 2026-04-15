@@ -60,8 +60,12 @@ export const useGameStore = create((set, get) => ({
       }
 
       // 2. Determine winner symbol safely (input validation constraint)
-      const parsedSymbol = ['X', 'O'].includes(symbol) ? symbol : null;
-      const winnerMark = parsedSymbol || (winner && players && players[winner] ? players[winner].symbol : null);
+      let winnerMark = state.winner;
+      if (status === 'finished' || symbol) {
+        const parsedSymbol = ['X', 'O'].includes(symbol) ? symbol : null;
+        winnerMark = parsedSymbol || (winner && players && players[winner] ? players[winner].symbol : null);
+      }
+      const isFinished = status === 'finished' || !!winnerMark;
 
       return {
         board: board || state.board,
@@ -69,7 +73,7 @@ export const useGameStore = create((set, get) => ({
         selfMark,
         winner: winnerMark,
         isDraw: status === 'finished' && !winnerMark,
-        appState: (status === 'finished' || winnerMark) ? 'GAME_OVER' : 'PLAYING',
+        appState: isFinished ? 'GAME_OVER' : 'PLAYING',
         gameOverReason: reason || state.gameOverReason,
         turnTimer: turnTimer !== undefined ? turnTimer : state.turnTimer,
       };
@@ -95,11 +99,11 @@ export const useGameStore = create((set, get) => ({
     try {
       const session = nakamaClient.getSession();
       const result = await nakamaClient.client.rpc(session, 'rpc_get_leaderboard', JSON.stringify({ limit: 10 }));
-      
+
       // The Nakama JS SDK automatically parses JSON responses. 
       // result.payload is already an array of leaderboard objects, NOT a JSON string.
       const data = Array.isArray(result.payload) ? result.payload : [];
-      
+
       set({ leaderboard: data, isLoadingLeaderboard: false });
     } catch (err) {
       console.error('[Leaderboard] Failed to fetch:', err);

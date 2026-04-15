@@ -30,10 +30,10 @@ class NakamaService {
     }
     this.session = null;
 
-    let deviceId = localStorage.getItem("deviceId");
+    let deviceId = sessionStorage.getItem("deviceId");
     if (!deviceId) {
       deviceId = uuidv4();
-      localStorage.setItem("deviceId", deviceId);
+      sessionStorage.setItem("deviceId", deviceId);
     }
 
     try {
