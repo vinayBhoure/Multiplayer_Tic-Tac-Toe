@@ -59,8 +59,9 @@ export const useGameStore = create((set, get) => ({
         selfMark = players[selfId].symbol;
       }
 
-      // 2. Determine winner symbol
-      const winnerMark = symbol || (winner && players && players[winner] ? players[winner].symbol : null);
+      // 2. Determine winner symbol safely (input validation constraint)
+      const parsedSymbol = ['X', 'O'].includes(symbol) ? symbol : null;
+      const winnerMark = parsedSymbol || (winner && players && players[winner] ? players[winner].symbol : null);
 
       return {
         board: board || state.board,

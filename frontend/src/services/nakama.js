@@ -1,7 +1,8 @@
 import { Client } from "@heroiclabs/nakama-js";
 import { v4 as uuidv4 } from "uuid";
 
-const client = new Client("defaultkey", "127.0.0.1", "7350", false);
+const SERVER_KEY = import.meta.env.VITE_NAKAMA_SERVER_KEY || "defaultkey";
+const client = new Client(SERVER_KEY, "127.0.0.1", "7350", false);
 
 export const nakamaService = {
   async authenticate(username) {

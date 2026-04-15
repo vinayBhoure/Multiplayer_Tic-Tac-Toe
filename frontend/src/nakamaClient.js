@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 const USE_SSL = false;
 const HOST = '127.0.0.1';
 const PORT = '7350';
-const SERVER_KEY = 'defaultkey';
+const SERVER_KEY = import.meta.env.VITE_NAKAMA_SERVER_KEY || 'defaultkey';
 
 class NakamaService {
   constructor() {
@@ -30,10 +30,11 @@ class NakamaService {
     }
     this.session = null;
 
-    // Per-username deterministic device ID → distinct Nakama account per player name.
-    // Nakama requires device IDs to be *at least* 10 characters long.
-    // We add a long enough prefix to guarantee even a 1-character username works.
-    const deviceId = `tic_tac_toe_device_${username}`;
+    let deviceId = localStorage.getItem("deviceId");
+    if (!deviceId) {
+      deviceId = uuidv4();
+      localStorage.setItem("deviceId", deviceId);
+    }
 
     try {
       this.session = await this.client.authenticateDevice(deviceId, true, username);
