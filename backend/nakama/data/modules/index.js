@@ -433,6 +433,7 @@ function matchmakerMatched(ctx, logger, nk, matches) {
 
 // --- rpcCreateMatch: Find an open match or create a new one ---
 function rpcCreateMatch(ctx, logger, nk, payload) {
+    if (!ctx.userId) return JSON.stringify({ error: "Unauthorized" });
     // Look for an existing open match (label "tictactoe", 0-2 players)
     var matches = nk.matchList(10, true, "tictactoe", 0, 2, "");
 
@@ -451,6 +452,7 @@ function rpcCreateMatch(ctx, logger, nk, payload) {
 
 // --- rpcGetLeaderboard: Fetch top players from the leaderboard ---
 function rpcGetLeaderboard(ctx, logger, nk, payload) {
+    if (!ctx.userId) return JSON.stringify({ error: "Unauthorized" });
     var limit = 10;
     if (payload) {
         try {
