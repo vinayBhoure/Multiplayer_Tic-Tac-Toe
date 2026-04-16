@@ -188,16 +188,16 @@ Open **http://localhost:5173**, enter a username, and start playing! 🏁
 
 ### Backend (`/backend/.env`)
 ```env
-POSTGRES_PASSWORD=localdb
-CONSOLE_USERNAME=admin
-CONSOLE_PASSWORD=password
+POSTGRES_PASSWORD=your_password
+CONSOLE_USERNAME=your_username
+CONSOLE_PASSWORD=your_password
 ```
 
 ### Frontend (`/frontend/.env`)
 ```env
-VITE_NAKAMA_SERVER_KEY=defaultkey
+VITE_NAKAMA_SERVER_KEY=your_secret_key
 VITE_NAKAMA_HOST=127.0.0.1
-VITE_NAKAMA_PORT=7350
+VITE_NAKAMA_PORT=3000
 VITE_NAKAMA_USE_SSL=false
 ```
 
@@ -207,8 +207,8 @@ VITE_NAKAMA_USE_SSL=false
 
 | Guide | Stack | Target |
 |-------|-------|------|
-| [**README.md#Backend**](#backend-aws-ec2) | AWS EC2 + Docker | API / WebSockets |
-| [**README.md#Frontend**](#frontend-vercel) | Vercel | Web Application |
+| [**README.md (Backend)**](#backend-aws-ec2) | AWS EC2 + Docker | API / WebSockets |
+| [**README.md (Frontend)**](#frontend-vercel) | Vercel | Web Application |
 
 ### Backend (AWS EC2)
 1. Transfer the `backend/` folder to your instance.
