@@ -59,3 +59,15 @@
 - [x] Implemented explicit session authorization checks on all custom RPC endpoints (`ctx.userId`)
 - [x] Added runtime input validation and sanitization for server-broadcasted symbols in `gameStore.js`
 - [x] Re-synced and verified full real-time gameplay loop stability post-hardening
+
+## Phase 6: Final Deployment
+- [ ] Backend live and continuously operable on an isolated Node (AWS EC2 / DigitalOcean).
+- [ ] Frontend successfully distributed globally across Vercel CDNs.
+- [ ] Public URLs successfully reach API/WebSockets channels.
+- [ ] Final end-to-end performance formally verified in real external settings.
+
+## Phase 7: Comprehensive Documentation & Handover
+- [x] Finalize repository artifacts with clean design logic outlines.
+- [x] Diagram descriptions provided for core matchmaking and architectural interactions.
+- [x] Explicit instruction lists for deployment setups and local environment replication.
+- [ ] Handoff and completion marks established.
